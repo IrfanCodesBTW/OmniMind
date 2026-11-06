@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x, 22.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: packages/bridge/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/bridge
+        run: npm ci
+
+      - name: Run tests
+        working-directory: packages/bridge
+        run: npm test
+
+  lint-structure:
+    name: Repo structure check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required files exist
+        run: |
+          test -f README.md        || (echo "Missing README.md" && exit 1)
+          test -f LICENSE           || (echo "Missing LICENSE" && exit 1)
+          test -f CONTRIBUTING.md   || (echo "Missing CONTRIBUTING.md" && exit 1)
+          test -f .gitignore        || (echo "Missing .gitignore" && exit 1)
+          test -f packages/bridge/server.mjs || (echo "Missing server.mjs" && exit 1)
+          test -f packages/bridge/brain.mjs  || (echo "Missing brain.mjs" && exit 1)
+          echo "All required files present ✓"

@@ -1,169 +1,308 @@
+<div align="center">
+
 # 🧠 OmniMind
 
-> **Local-first shared memory and transactional task coordinator for multi-agent AI harnesses.**
+**One persistent memory. Every AI harness.**
+
+*Local-first shared memory and transactional task engine for multi-agent AI workflows — powered by the Model Context Protocol.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![MCP Compatible](https://img.shields.io/badge/MCP-1.32.1-green.svg)](https://modelcontextprotocol.io)
-[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24-brightgreen.svg)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/Tests-14%2F14%20Passing-success.svg)](packages/bridge/test)
+[![MCP SDK](https://img.shields.io/badge/MCP%20SDK-1.32.1-purple)](https://github.com/modelcontextprotocol/typescript-sdk)
+[![Node.js ≥ 24](https://img.shields.io/badge/Node.js-%3E%3D24-green)](https://nodejs.org)
+[![Tests](https://img.shields.io/badge/tests-15%2F15%20passing-brightgreen)](#testing)
+[![CI](https://github.com/IrfanCodesBTW/omnimind/actions/workflows/ci.yml/badge.svg)](https://github.com/IrfanCodesBTW/omnimind/actions)
+
+</div>
 
 ---
 
-## 💡 The Problem: Multi-Agent Silos & Amnesia
+## The Problem
 
-Modern AI developers don't use just one tool:
-- You brainstorm and architect in **Claude Desktop**.
-- You write code in **Cursor** or **Codex**.
-- You run autonomous workflows in **Hermes Agent** or **OpenCode**.
+You're using Claude, Cursor, Codex, and three other AI agents — and **none of them remember what the others did**. Every session starts cold. Context is repeated, tasks are duplicated, decisions are forgotten.
 
-**The issue?** Every client starts with zero context. They don't know what decisions were made in other sessions, they overwrite each other's work, and they have no reliable, conflict-free way to coordinate tasks.
+OmniMind is the fix: a single stdio MCP server that gives every agent the same persistent memory, task board, and coordination layer — backed by your local Markdown vault and a WAL-mode SQLite database.
 
 ---
 
-## ⚡ The Solution: OmniMind
-
-**OmniMind** provides a single, local-first source of truth that every AI agent connects to via the standard [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
+## Architecture
 
 ```
-   ┌─────────────────────────────────────────────────────────────┐
-   │                   AI Coding & Research Clients              │
-   │   Claude Desktop  ·  Cursor  ·  Codex  ·  Hermes  ·  OpenCode │
-   └──────────────────────────────┬──────────────────────────────┘
-                                  │ (stdio MCP Protocol)
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │                      OmniMind Bridge                        │
-   │            (7 MCP Tools · Optimistic Locking)               │
-   └──────────────┬───────────────────────────────┬──────────────┘
-                  │                               │
-                  ▼                               ▼
-   ┌─────────────────────────────┐ ┌─────────────────────────────┐
-   │   Human-Readable Storage    │ │   Transactional Task Store  │
-   │   Obsidian Markdown Vault   │ │      Local SQLite (WAL)     │
-   │  (Notes, Hubs, Knowledge)   │ │ (Tasks, Claims, Revisions)  │
-   └─────────────────────────────┘ └─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        YOUR AI CLIENTS                          │
+│  Claude Desktop  │  Cursor  │  Codex  │  OpenCode  │  Windsurf  │
+└──────────┬───────┴────┬─────┴────┬────┴─────┬──────┴────┬───────┘
+           │  stdio MCP │         │          │           │
+           ▼            ▼         ▼          ▼           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    OmniMind Bridge (server.mjs)                  │
+│           7 MCP Tools · Optimistic Locking · ACID SQLite         │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+           ┌─────────────────▼──────────────────┐
+           │         Your Obsidian Vault          │
+           │  .obsidian/  │  Notes/  │ .omnimind/ │
+           │              │          │  brain.db  │
+           └─────────────────────────────────────┘
 ```
 
-- **Human-Readable Knowledge**: All knowledge, decisions, and sessions are written to a plain Markdown vault you can browse and edit in [Obsidian](https://obsidian.md).
-- **ACID Transactional Tasks**: Task state, revisions, claims, and event logs are stored in a local SQLite database with optimistic concurrency control. Two agents cannot collide or overwrite the same task.
-- **Universal Stdio MCP Bridge**: Zero cloud dependencies, zero external vector databases, zero telemetry. 100% private and runs locally on your machine.
+Every agent reads from and writes to the **same vault and database** — so context, tasks, and decisions persist across all tools, all sessions.
 
 ---
 
-## 🚀 Quickstart in 30 Seconds
+## Key Features
 
-### Option A: Using the Interactive Installer
+- **🔒 Local-first & private** — your vault stays on your machine; zero cloud dependency
+- **⚡ Stdio MCP transport** — zero-port, zero-auth, plug into any MCP-compatible client in seconds
+- **🧰 7 purpose-built tools** — context, search, read, capture, tasks, health (`brain_context`, `brain_search`, `brain_read`, `brain_capture`, `brain_tasks`, `brain_task`, `brain_health`)
+- **🗃️ ACID SQLite (WAL mode)** — durable task state with write-ahead logging and crash recovery
+- **🔁 Optimistic concurrency locking** — multi-agent task claiming with revision-based conflict prevention
+- **📝 Idempotent captures** — fingerprinted note deduplication prevents duplicate writes
+- **📂 Obsidian-compatible vault** — open your notes in Obsidian, iA Writer, or any Markdown editor alongside your agents
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+|---|---|---|
+| **Node.js** | ≥ 24.0 | Uses native `node:test`, `node:sqlite`, ES modules |
+| **Git** | any | For cloning |
+| **Obsidian** | any (optional) | For browsing your vault visually |
+| **An MCP-compatible AI client** | — | Claude Desktop, Cursor, Codex, OpenCode, Windsurf, etc. |
+
+---
+
+## Quick Start
+
+### Option A — Interactive Setup Wizard (Recommended)
+
 ```bash
 git clone https://github.com/IrfanCodesBTW/omnimind.git
 cd omnimind
 npm run init
 ```
+
 The wizard will:
-1. Seed a fresh Obsidian starter vault with information architecture rules.
-2. Initialize the local SQLite workflow store.
-3. Automatically detect and configure installed AI clients (Claude Desktop, Cursor, Hermes, etc.).
+1. Ask where you want your vault (or use an existing one)
+2. Copy the starter vault template
+3. Detect your AI clients and print the exact config block to add
 
-### Option B: Manual Registration
-Add the bridge to your MCP client config (e.g. `claude_desktop_config.json` or Cursor MCP settings):
+### Option B — Manual Setup
 
+See the [Manual Setup Guide](#manual-setup-guide) below.
+
+---
+
+## Manual Setup Guide
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/IrfanCodesBTW/omnimind.git
+cd omnimind
+```
+
+### 2. Install dependencies
+
+```bash
+cd packages/bridge
+npm install
+cd ../..
+```
+
+### 3. Create your vault
+
+Either point to an existing Obsidian vault, or create a new one from the starter template:
+
+```bash
+# Option: use the starter template
+cp -r packages/templates/starter-vault ~/Documents/MyBrain
+```
+
+### 4. Configure your AI client
+
+Add an `omnimind` entry to your MCP client config. Replace the paths with your actual paths:
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "omnimind": {
       "command": "node",
-      "args": ["/path/to/omnimind/packages/bridge/server.mjs"],
+      "args": ["/absolute/path/to/omnimind/packages/bridge/server.mjs"],
       "env": {
-        "MASTERMIND_VAULT": "/path/to/your/Obsidian/Vault"
+        "MASTERMIND_VAULT": "/absolute/path/to/your/vault"
       }
     }
   }
 }
 ```
 
----
-
-## 🛠️ The 7 Core MCP Tools
-
-OmniMind exposes a curated set of 7 high-leverage tools:
-
-| Tool | Purpose | Key Guarantees |
-|---|---|---|
-| `brain_context` | Gateway for agents starting substantive work. | Loads Agent Contract, profile facts, and active task summaries. |
-| `brain_search` | Substring keyword search across vault Markdown. | Scoped directory searches, title boost, traversal exclusion. |
-| `brain_read` | Reads allowed vault Markdown notes. | Returns SHA-256 hash, pagination, directory escape rejection. |
-| `brain_capture` | Saves attributed session notes and ADRs. | Request idempotency, auto-linking to parent hubs, clean filenames. |
-| `brain_tasks` | Queries tasks with filters and pagination. | Real-time aggregate task state from authoritative SQLite store. |
-| `brain_task` | Create, claim, checkpoint, handoff, complete. | Optimistic concurrency (`expected_revision`), append-only event ledger. |
-| `brain_health` | Diagnostic self-check. | Validates SQLite integrity, schema version, note counts, zero mutations. |
-
----
-
-## 📂 Vault Information Architecture
-
-OmniMind enforces a strict, human-friendly folder taxonomy:
-
-```text
-OmniMind/
-├── Home.md                       # Top-level entrypoint
-├── AGENTS.md                     # Universal agent contract
-├── Me/                           # Confirmed profile facts and user preferences
-├── Areas/                        # Ongoing long-term domains (e.g., Engineering, Marketing)
-├── Projects/                     # Bounded deliverables with dedicated hubs
-├── Knowledge/
-│   ├── Concepts/                 # Evergreen mental models
-│   ├── Research/                 # Sourced research claims
-│   ├── Decisions/                # Architecture Decision Records (ADRs)
-│   └── Lessons/                  # Post-mortems and lessons learned
-├── Work/
-│   ├── Task Board.md             # Markdown task board projection
-│   ├── Tasks/                    # Generated readable task views
-│   └── Sessions/                 # Dated session outcomes (YYYY-MM-DD)
-└── System/                       # Governance, graph rules, and backup policies
+**Cursor** (`~/.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "omnimind": {
+      "command": "node",
+      "args": ["/absolute/path/to/omnimind/packages/bridge/server.mjs"],
+      "env": {
+        "MASTERMIND_VAULT": "/absolute/path/to/your/vault"
+      }
+    }
+  }
+}
 ```
 
+**OpenCode** (`~/.config/opencode/config.json`):
+```json
+{
+  "mcp": {
+    "servers": {
+      "omnimind": {
+        "type": "local",
+        "command": "node",
+        "args": ["/absolute/path/to/omnimind/packages/bridge/server.mjs"],
+        "env": {
+          "MASTERMIND_VAULT": "/absolute/path/to/your/vault"
+        }
+      }
+    }
+  }
+}
+```
+
+### 5. Verify the connection
+
+```bash
+MASTERMIND_VAULT="/absolute/path/to/your/vault" node packages/bridge/cli.mjs brain_health
+```
+
+You should see:
+```json
+{
+  "status": "ok",
+  "vault": "/absolute/path/to/your/vault",
+  "notes": 12,
+  "tasks": { "open": 0, "total": 0 }
+}
+```
+
+### 6. Restart your AI client
+
+Restart Claude Desktop / Cursor / etc. — the OmniMind tools will appear in the tool list.
+
 ---
 
-## 🛡️ Built-in Concurrency & Integrity Safeguards
+## AI Agent Setup Prompt ✨
 
-1. **Optimistic Locking**: Every task has a monotonic `revision` number. If Agent B tries to modify a task that Agent A has already updated, Agent B's call is rejected with a stale revision error until it re-reads.
-2. **Explicit Handoffs**: An agent cannot "steal" an active task claim from another session without an explicit handoff release.
-3. **Idempotent Mutations**: Every mutating request accepts an idempotency key. Network retries return identical results without duplicating entries.
-4. **Readable File Naming**: Rejects hash suffixes, raw UUIDs, and Windows reserved names. Produces clean, readable note titles (3 to 8 words, <= 70 characters).
+> **Copy-paste this prompt into any AI coding agent** (Claude Code, Cursor Agent, OpenCode, Codex, Windsurf) to have it set up OmniMind autonomously on your machine.
+
+````
+You are setting up the OmniMind MCP Brain on my local machine. Follow these steps autonomously:
+
+1. Clone https://github.com/IrfanCodesBTW/omnimind to ~/OmniMind (or ask me for a preferred location)
+2. Run: cd ~/OmniMind/packages/bridge && npm install
+3. Create a vault directory at ~/Documents/OmniMind-Vault
+4. Copy all files from packages/templates/starter-vault/ into ~/Documents/OmniMind-Vault
+5. Locate my AI client MCP config file. Check these locations in order:
+   - Claude Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json  (macOS)
+   - Claude Desktop: %APPDATA%\Claude\claude_desktop_config.json  (Windows)
+   - Cursor: ~/.cursor/mcp.json
+   - OpenCode: ~/.config/opencode/config.json
+   - Codex: ~/.codex/config.json
+   - Windsurf: ~/.codeium/windsurf/mcp_config.json
+6. Add the following entry under "mcpServers" in that config file:
+   {
+     "omnimind": {
+       "command": "node",
+       "args": ["<absolute path to ~/OmniMind/packages/bridge/server.mjs>"],
+       "env": {
+         "MASTERMIND_VAULT": "<absolute path to ~/Documents/OmniMind-Vault>"
+       }
+     }
+   }
+7. Verify the setup by running:
+   MASTERMIND_VAULT="~/Documents/OmniMind-Vault" node ~/OmniMind/packages/bridge/cli.mjs brain_health
+8. Report the full health check JSON output and the exact config entry you wrote, including all absolute paths used.
+````
 
 ---
 
-## 🧪 Testing
+## The 7 MCP Tools
 
-OmniMind includes an exhaustive test suite exercising concurrent process claims, junction/symlink security escapes, crash recovery, and tool discovery:
+| Tool | Purpose | Key Arguments |
+|---|---|---|
+| `brain_context` | Load agent instructions, open tasks, and relevant notes | `query?`, `project_id?`, `task_id?` |
+| `brain_search` | Full-text search across the entire vault | `query` |
+| `brain_read` | Read a specific note by path or ID | `path` |
+| `brain_capture` | Write a new note with deduplication fingerprinting | `category`, `title`, `content`, `agent`, `session_id`, `request_id` |
+| `brain_tasks` | List tasks with filters | `status?`, `project_id?`, `agent?` |
+| `brain_task` | Create, claim, update, complete, or hand off a task | `action`, varies by action |
+| `brain_health` | Health check — vault status, note count, task stats | — |
+
+> **Agents should always call `brain_context` first** at the start of every session to load instructions, open tasks, and relevant memory.
+
+---
+
+## Vault Structure
+
+```
+your-vault/
+├── Home.md                   # Dashboard / index
+├── AGENTS.md                 # Agent instructions and contracts
+├── Me/
+│   ├── Profile.md            # User identity and preferences
+│   └── Preferences.md        # Detailed preferences
+├── Areas/
+│   └── Areas.md              # Ongoing responsibilities
+├── Projects/
+│   └── Projects.md           # Active projects hub
+├── Knowledge/
+│   └── Knowledge.md          # Reference notes
+├── Work/
+│   └── Task Board.md         # Kanban-style task tracking
+└── System/
+    ├── Agent Contract.md     # Rules for AI agent behavior
+    ├── Graph guide.md        # Vault link conventions
+    ├── Naming and organization.md
+    └── Backup and restore.md
+```
+
+The `.omnimind/` folder (auto-created inside your vault) holds `brain.db` — the SQLite task database.
+
+---
+
+## Testing
 
 ```bash
 cd packages/bridge
 npm test
 ```
-```text
-✔ captured professional context is searchable and idempotent
-✔ handoff survives reopening database and can be claimed by another app
-✔ stale revisions, blocked dependencies and completion without evidence are refused
-✔ two independent server processes cannot claim the same revision
-✔ actual MCP stdio clients discover tools and share notes across connections
+
+Expected output:
+```
+✔ human edits of generated views are preserved (26ms)
+✔ a junction cannot be used to read outside the vault (2ms)
+✔ two independent server processes cannot claim the same revision (72ms)
+✔ actual MCP stdio clients discover tools and share notes across connections (159ms)
+✔ task projections use readable canonical filenames (44ms)
+✔ maintenance lock refuses Brain construction before opening workflow SQLite (0ms)
+✔ maintenance lock makes both the CLI and MCP server exit before opening the database (85ms)
+✔ OmniMind full functional verification suite (102ms)
 ...
-ℹ tests 14 · pass 14 · fail 0
+ℹ tests 15
+ℹ pass 15
+ℹ fail 0
 ```
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are very welcome! Please feel free to submit issues, feature suggestions, or pull requests.
-
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes (`git commit -m 'Add amazing feature'`).
-4. Ensure all tests pass (`npm test`).
-5. Push to the branch and open a Pull Request.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started — bug fixes, new AI client support, starter vault notes, and documentation improvements are all fair game.
 
 ---
 
-## 📄 License
+## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+[MIT](LICENSE) © [IrfanCodesBTW](https://github.com/IrfanCodesBTW)
