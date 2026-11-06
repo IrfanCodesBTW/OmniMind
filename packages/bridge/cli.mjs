@@ -2,9 +2,9 @@ import { Brain, dispatch } from './brain.mjs';
 import fs from 'node:fs';
 
 const [name = 'brain_health', file] = process.argv.slice(2);
-const vault = process.env.MASTERMIND_VAULT;
+const vault = process.env.OMNIMIND_VAULT;
 if (!vault) {
-  console.error('Error: MASTERMIND_VAULT environment variable must be set to the target vault path.');
+  console.error('Error: OMNIMIND_VAULT environment variable must be set to the target vault path.');
   process.exit(1);
 }
 

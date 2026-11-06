@@ -2,13 +2,15 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { Brain, dispatch, toolDefinitions } from './brain.mjs';
+import { createRequire } from 'node:module';
+const version = createRequire(import.meta.url)('./package.json').version;
 
-const vault = process.env.MASTERMIND_VAULT;
-if (!vault) throw new Error('MASTERMIND_VAULT must identify the existing Obsidian vault');
+const vault = process.env.OMNIMIND_VAULT;
+if (!vault) throw new Error('OMNIMIND_VAULT must identify the existing Obsidian vault');
 let brain;
 try { brain = new Brain(vault); }
 catch (error) { console.error(error.message); process.exit(75); }
-const server = new Server({ name: 'omnimind', version: '1.0.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'omnimind', version }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolDefinitions.map(t => ({ ...t,
   annotations: { readOnlyHint: !['brain_capture', 'brain_task'].includes(t.name), destructiveHint: t.name === 'brain_task', openWorldHint: false }
 })) }));

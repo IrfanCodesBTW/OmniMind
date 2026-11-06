@@ -14,7 +14,10 @@
   "scripts": {
     "init": "node bin/init.mjs",
     "start": "node packages/bridge/server.mjs",
-    "test": "node --test packages/bridge/test/*.test.mjs"
+    "test": "node --test packages/bridge/test/*.test.mjs",
+    "brain:health": "node packages/bridge/cli.mjs brain_health",
+    "brain:cli": "node packages/bridge/cli.mjs",
+    "backup": "node packages/bridge/backup.mjs"
   },
   "keywords": [
     "mcp",
@@ -29,5 +32,8 @@
     "task-coordination"
   ],
   "author": "IrfanCodesBTW",
-  "license": "MIT"
+  "license": "MIT",
+  "workspaces": [
+    "packages/bridge"
+  ]
 }

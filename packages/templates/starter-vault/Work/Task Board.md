@@ -3,7 +3,7 @@ type: "work"
 category: "work"
 title: "Task Board"
 ---
-<!-- Mastermind generated task projection. Authoritative state lives in SQLite. -->
+<!-- OmniMind generated task projection. Authoritative state lives in SQLite. -->
 
 # Task Board
 

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
+const version = createRequire(import.meta.url)('./package.json').version;
 import { DatabaseSync } from 'node:sqlite';
 
 const hash = text => crypto.createHash('sha256').update(text).digest('hex');
@@ -48,9 +50,11 @@ export class Brain {
   constructor(vault, options = {}) {
     this.root = fs.realpathSync(vault);
     this.readOnly = Boolean(options.readOnly);
-    this.internal = path.join(this.root, '.mastermind');
+    this.internal = path.join(this.root, '.omnimind');
+    const previous = path.join(this.root, '.' + ['master', 'mind'].join(''));
+    if (fs.existsSync(previous)) throw new Error('An older vault database was detected. Stop all clients and migrate it before opening this vault.');
     if (fs.existsSync(path.join(this.internal, 'reorganization.lock'))) {
-      throw new Error('Master mind maintenance is in progress; retry after the vault reorganization completes');
+      throw new Error('OmniMind maintenance is in progress; retry after the vault reorganization completes');
     }
     if (!this.readOnly) fs.mkdirSync(this.internal, { recursive: true });
     this.db = new DatabaseSync(path.join(this.internal, 'workflow.sqlite'), { readOnly: this.readOnly });
@@ -335,7 +339,7 @@ export class Brain {
     if (fs.existsSync(target)) {
       const currentHash = hash(fs.readFileSync(target, 'utf8'));
       if (previous && currentHash !== previous.hash && currentHash !== hash(content)) return `Human-edited view preserved: ${canonical}`;
-      if (!previous && !fs.readFileSync(target, 'utf8').includes('<!-- Mastermind generated view.')) return `Existing note preserved: ${canonical}`;
+      if (!previous && !fs.readFileSync(target, 'utf8').includes('<!-- OmniMind generated view.')) return `Existing note preserved: ${canonical}`;
     }
     this.atomic(target, content);
     this.db.prepare('INSERT INTO projections VALUES(?,?) ON CONFLICT(path) DO UPDATE SET hash=excluded.hash').run(relative, hash(content));
@@ -367,13 +371,13 @@ export class Brain {
         const heading = task.title.replace(/[\r\n]+/g, ' ').trim();
         const taskLink = `[[${relative.slice(0, -3)}|${path.posix.basename(relative, '.md')}]]`;
         const hub = this.hubLink(layout, task.project_id, 'project');
-        const content = `---\ntype: task-view\ntask_id: ${JSON.stringify(task.id)}\nstatus: ${task.status}\nproject_id: ${JSON.stringify(task.project_id)}\nrevision: ${task.revision}\ntitle: ${JSON.stringify(task.title)}\n---\n<!-- Mastermind generated view. Use brain_task to change workflow state. -->\n\n# ${heading}\n\n${hub ? `${hub} · ` : ''}${taskLink}\n\nStatus: **${task.status}** · Revision: ${task.revision}\n\nOwner: ${task.owner ? `${task.owner.agent} / ${task.owner.session_id}` : 'Available for a new claim'}\n\n## Objective\n${task.objective}\n\n## Acceptance criteria\n${list(task.acceptance)}\n\n## Latest checkpoint\n${task.summary || 'No work recorded yet.'}\n\n## Next steps\n${list(task.next_steps)}\n\n## Artifacts and repository state\n${list(task.artifacts)}\n\n## Validation\n${task.validation || 'Not run / not recorded.'}\n\n## Handoffs\n${task.handoffs.map(h => `- ${h.offered_at}: ${h.from.agent} → ${h.to_agent || 'next available agent'}: ${h.summary}`).join('\n') || '- None'}\n\nUpdated: ${task.updated_at}\n\nCanonical workflow state: local SQLite database, retrieved with brain_task(action=get).\n`;
+        const content = `---\ntype: task-view\ntask_id: ${JSON.stringify(task.id)}\nstatus: ${task.status}\nproject_id: ${JSON.stringify(task.project_id)}\nrevision: ${task.revision}\ntitle: ${JSON.stringify(task.title)}\n---\n<!-- OmniMind generated view. Use brain_task to change workflow state. -->\n\n# ${heading}\n\n${hub ? `${hub} · ` : ''}${taskLink}\n\nStatus: **${task.status}** · Revision: ${task.revision}\n\nOwner: ${task.owner ? `${task.owner.agent} / ${task.owner.session_id}` : 'Available for a new claim'}\n\n## Objective\n${task.objective}\n\n## Acceptance criteria\n${list(task.acceptance)}\n\n## Latest checkpoint\n${task.summary || 'No work recorded yet.'}\n\n## Next steps\n${list(task.next_steps)}\n\n## Artifacts and repository state\n${list(task.artifacts)}\n\n## Validation\n${task.validation || 'Not run / not recorded.'}\n\n## Handoffs\n${task.handoffs.map(h => `- ${h.offered_at}: ${h.from.agent} → ${h.to_agent || 'next available agent'}: ${h.summary}`).join('\n') || '- None'}\n\nUpdated: ${task.updated_at}\n\nCanonical workflow state: local SQLite database, retrieved with brain_task(action=get).\n`;
         const warning = this.projection(legacy, content, relative); if (warning) warnings.push(warning);
       }
       this.atomic(layoutFile, `${JSON.stringify(layout, null, 2)}\n`);
       const active = tasks.filter(t => t.status !== 'done');
       const taskPath = task => this.resolve(`Work/Tasks/${task.id}.md`, layout);
-      const board = `<!-- Mastermind generated view. Use brain_task to change workflow state. -->\n# Task Board\n\n[[Home|Master mind home]] · [[System/How to use Master mind]]\n\n${active.length ? active.map(t => `- **${t.status}** [[${taskPath(t).slice(0, -3)}|${t.title}]] — ${t.project_id}${t.owner ? ` (${t.owner.agent})` : ''}`).join('\n') : 'No unfinished tasks.'}\n\n## Completed\n${tasks.filter(t => t.status === 'done').slice(0, 30).map(t => `- [[${taskPath(t).slice(0, -3)}|${t.title}]]`).join('\n') || 'No completed tasks yet.'}\n`;
+      const board = `<!-- OmniMind generated view. Use brain_task to change workflow state. -->\n# Task Board\n\n[[Home|OmniMind home]] · [[System/How to use OmniMind]]\n\n${active.length ? active.map(t => `- **${t.status}** [[${taskPath(t).slice(0, -3)}|${t.title}]] — ${t.project_id}${t.owner ? ` (${t.owner.agent})` : ''}`).join('\n') : 'No unfinished tasks.'}\n\n## Completed\n${tasks.filter(t => t.status === 'done').slice(0, 30).map(t => `- [[${taskPath(t).slice(0, -3)}|${t.title}]]`).join('\n') || 'No completed tasks yet.'}\n`;
       const warning = this.projection('Work/Task Board.md', board); if (warning) warnings.push(warning);
       this.db.exec('COMMIT'); return warnings;
     } catch (e) {
@@ -401,7 +405,7 @@ export class Brain {
       note: 'Search results are excerpts. Read relevant sources before relying on them. Unsupplied profile fields remain unknown. Refresh a task before mutation.' };
   }
   health() {
-    return { version: '0.1.0', vault: this.root, storage: 'Markdown knowledge + transactional local SQLite workflow',
+    return { version, vault: this.root, storage: 'Markdown knowledge + transactional local SQLite workflow',
       database: this.db.prepare('PRAGMA quick_check').all(), notes: this.files().length,
       tasks: this.db.prepare('SELECT count(*) AS count FROM tasks').get().count,
       network: 'none; stdio only', warnings: ['Live app sessions must reload their MCP configuration. Agent checkpoint behavior is instruction-driven, not a guarantee of capture after a crash.'] };
@@ -409,7 +413,7 @@ export class Brain {
 }
 
 export const toolDefinitions = [
-  { name: 'brain_context', description: 'START HERE at the beginning of substantive work. Retrieve Master mind shared user context, active tasks and relevant notes.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, project_id: { type: 'string' }, task_id: { type: 'string' } }, additionalProperties: false } },
+  { name: 'brain_context', description: 'START HERE at the beginning of substantive work. Retrieve OmniMind shared user context, active tasks and relevant notes.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, project_id: { type: 'string' }, task_id: { type: 'string' } }, additionalProperties: false } },
   { name: 'brain_search', description: 'Search shared knowledge across profile, LinkedIn, marketing, projects and handoffs. Read matching notes before relying on excerpts.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, scope: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 30 } }, required: ['query'], additionalProperties: false } },
   { name: 'brain_read', description: 'Read a vault-relative Markdown note, returning its hash and explicit pagination.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, offset: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 40000 } }, required: ['path'], additionalProperties: false } },
   { name: 'brain_capture', description: 'SAVE discoveries, user corrections, professional context, drafts, lessons or session outcomes as a new attributed Markdown note. Never publishes anything externally.', inputSchema: { type: 'object', properties: { category: { type: 'string', enum: Object.keys(categories) }, title: { type: 'string' }, content: { type: 'string' }, agent: { type: 'string' }, session_id: { type: 'string' }, request_id: { type: 'string' }, project_id: { type: 'string' }, task_id: { type: 'string' }, sources: { type: 'array', items: { type: 'string' } } }, required: ['category', 'title', 'content', 'agent', 'session_id', 'request_id'], additionalProperties: false } },

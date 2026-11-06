@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -36,22 +36,23 @@ async function main() {
     console.log(`\n✔ Using existing directory: ${targetVault}`);
   }
 
-  // Copy template files
-  console.log('📦 Seeding starter Obsidian vault structure...');
-  fs.cpSync(TEMPLATE_VAULT, targetVault, { recursive: true });
-  console.log('✔ Starter vault structure seeded.');
-
   // Initialize SQLite workflow store
   console.log('⚙️ Initializing local SQLite workflow engine...');
-  const internalDir = path.join(targetVault, '.mastermind');
-  fs.mkdirSync(internalDir, { recursive: true });
+  // Brain checks for older vaults before creating the workflow directory.
   
   // Test connection using brain.mjs
-  const { Brain } = await import(path.join(ROOT_DIR, 'packages', 'bridge', 'brain.mjs'));
+  const { Brain } = await import(pathToFileURL(path.join(ROOT_DIR, 'packages', 'bridge', 'brain.mjs')).href);
   const brain = new Brain(targetVault);
   const health = brain.health();
   brain.close();
   console.log(`✔ Local database initialized: ${health.storage}`);
+
+
+  // Copy template files
+  console.log('📦 Seeding starter Obsidian vault structure...');
+  fs.cpSync(TEMPLATE_VAULT, targetVault, { recursive: true, force: false, errorOnExist: false });
+  console.log('✔ Starter vault structure seeded.');
+
 
   // Detect and configure AI clients
   console.log('\n🔍 Scanning for installed AI clients on your system...\n');
@@ -62,7 +63,9 @@ async function main() {
   // 1. Claude Desktop
   const claudeConfigPath = process.platform === 'darwin'
     ? path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
-    : path.join(os.homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json');
+    : process.platform === 'win32'
+      ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Claude', 'claude_desktop_config.json')
+      : path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'Claude', 'claude_desktop_config.json');
 
   if (fs.existsSync(path.dirname(claudeConfigPath))) {
     try {
@@ -71,14 +74,30 @@ async function main() {
         cfg = JSON.parse(fs.readFileSync(claudeConfigPath, 'utf8'));
       }
       cfg.mcpServers = cfg.mcpServers || {};
-      cfg.mcpServers.omnimind = {
+      const entry = {
         command: nodeExecutable,
         args: [BRIDGE_SERVER],
-        env: { MASTERMIND_VAULT: targetVault }
+        env: { OMNIMIND_VAULT: targetVault }
       };
-      fs.writeFileSync(claudeConfigPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+      const previous = cfg.mcpServers.omnimind;
+      if (previous && JSON.stringify(previous) !== JSON.stringify(entry)) {
+        throw new Error('Existing omnimind registration differs; preserve it and configure manually');
+      }
+      if (!previous) {
+        cfg.mcpServers.omnimind = entry;
+        if (fs.existsSync(claudeConfigPath)) {
+          const backup = `${claudeConfigPath}.${Date.now()}.bak`;
+          fs.copyFileSync(claudeConfigPath, backup, fs.constants.COPYFILE_EXCL);
+          console.log(`Configuration backup: ${backup}`);
+        }
+        const temporary = `${claudeConfigPath}.${process.pid}.tmp`;
+        try {
+          fs.writeFileSync(temporary, JSON.stringify(cfg, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+          fs.renameSync(temporary, claudeConfigPath);
+        } finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
+      }
       configuredClients.push('Claude Desktop');
-      console.log('✔ Connected: Claude Desktop');
+      console.log('✔ Registered: Claude Desktop (restart and verify connection)');
     } catch (e) {
       console.log(`⚠️ Claude Desktop detected but failed to update: ${e.message}`);
     }
@@ -101,7 +120,7 @@ async function main() {
   console.log('==========================================\n');
   console.log(`Vault Location:   ${targetVault}`);
   console.log(`Bridge Server:    ${BRIDGE_SERVER}`);
-  console.log(`Connected Clients: ${configuredClients.join(', ') || 'Manual setup'}\n`);
+  console.log(`Registered Clients: ${configuredClients.join(', ') || 'Manual setup'}\n`);
   console.log('Next steps:');
   console.log('1. Open your vault in Obsidian: select "Open folder as vault" -> ' + targetVault);
   console.log('2. Start your AI agent and ask: "Check my OmniMind context and tell me what tasks are open."\n');

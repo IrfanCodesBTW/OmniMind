@@ -1,8 +1,13 @@
 node_modules/
 .DS_Store
 *.log
-.mastermind/*.sqlite-wal
-.mastermind/*.sqlite-shm
+.omnimind/*.sqlite-wal
+.omnimind/*.sqlite-shm
 .backup-*
 coverage/
 dist/
+
+.env
+.env.*
+!.env.example
+.omnimind/

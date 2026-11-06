@@ -9,7 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 function setup(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mastermind-test-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimind-test-'));
   const brain = new Brain(root);
   t.after(() => { brain.close(); cleanup(root); });
   return { root, brain };
@@ -18,7 +18,7 @@ function cleanup(target) {
   const absolute = path.resolve(target);
   const base = path.resolve(os.tmpdir());
   assert.equal(path.dirname(absolute), base);
-  assert.ok(/^mastermind-(test|outside)-/.test(path.basename(absolute)));
+  assert.ok(/^omnimind-(test|outside)-/.test(path.basename(absolute)));
   fs.rmSync(absolute, { recursive: true, force: true });
 }
 function create(brain, extra = {}) {
@@ -75,14 +75,14 @@ test('human edits of generated views are preserved, hidden paths and traversal a
   assert.ok(brain.refresh().some(x => x.includes('Human-edited')));
   assert.match(fs.readFileSync(board, 'utf8'), /A human comment/);
   assert.throws(() => brain.read({ path: '../private.md' }), /traversal/);
-  assert.throws(() => brain.read({ path: '.mastermind/secret.md' }), /Hidden/);
+  assert.throws(() => brain.read({ path: '.omnimind/secret.md' }), /Hidden/);
   fs.mkdirSync(path.join(root, '.obsidian'));
   fs.writeFileSync(path.join(root, '.obsidian', 'hidden.md'), 'secretcanary');
   assert.equal(brain.search({ query: 'secretcanary' }).total, 0);
 });
 test('a junction cannot be used to read outside the vault', t => {
   const { brain, root } = setup(t);
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mastermind-outside-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimind-outside-'));
   fs.writeFileSync(path.join(outside, 'private.md'), 'private canary');
   const link = path.join(root, 'escape');
   fs.symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
@@ -98,7 +98,7 @@ test('two independent server processes cannot claim the same revision', async t 
   const run = agent => new Promise((resolve, reject) => {
     const args = { action: 'claim', task_id: task.id, expected_revision: task.revision, agent, session_id: agent, request_id: agent };
     const file = path.join(root, `${agent}.json`); fs.writeFileSync(file, JSON.stringify(args));
-    const child = spawn(process.execPath, [cli, 'brain_task', file], { env: { ...process.env, MASTERMIND_VAULT: root }, windowsHide: true });
+    const child = spawn(process.execPath, [cli, 'brain_task', file], { env: { ...process.env, OMNIMIND_VAULT: root }, windowsHide: true });
     let stderr = ''; child.stderr.on('data', data => { stderr += data; });
     child.on('error', reject); child.on('close', code => resolve({ code, stderr }));
   });
@@ -111,7 +111,7 @@ test('actual MCP stdio clients discover tools and share notes across connections
   const server = path.resolve(import.meta.dirname, '../server.mjs');
   const connect = async name => {
     const client = new Client({ name, version: '1.0.0' });
-    const transport = new StdioClientTransport({ command: process.execPath, args: [server], env: { ...process.env, MASTERMIND_VAULT: root }, stderr: 'pipe' });
+    const transport = new StdioClientTransport({ command: process.execPath, args: [server], env: { ...process.env, OMNIMIND_VAULT: root }, stderr: 'pipe' });
     await client.connect(transport); return client;
   };
   const first = await connect('hermes-test');
@@ -140,21 +140,21 @@ test('task projections use readable canonical filenames, valid YAML, immutable i
   const legacy='Work/Tasks/'+task.id+'.md';
   assert.equal(brain.db.prepare('SELECT path FROM projections WHERE path=?').get(legacy).path,legacy);
   fs.writeFileSync(file,text+'\nHuman annotation that must survive.\n');
-  fs.writeFileSync(path.join(root,'.mastermind/layout.json'),JSON.stringify({version:1,timezone:'UTC',redirects:{[legacy]:'Work/Tasks/Build readable task.md'},projects:{},categoryHubs:{}}));
+  fs.writeFileSync(path.join(root,'.omnimind/layout.json'),JSON.stringify({version:1,timezone:'UTC',redirects:{[legacy]:'Work/Tasks/Build readable task.md'},projects:{},categoryHubs:{}}));
   assert.equal(brain.read({path:legacy}).path,'Work/Tasks/Build readable task.md');
   assert.ok(brain.refresh().some(x=>x.includes('Human-edited')));
   assert.match(fs.readFileSync(file,'utf8'),/Human annotation that must survive/);
 });
 test('maintenance lock refuses Brain construction before opening workflow SQLite', t => {
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'mastermind-test-'));const internal=path.join(root,'.mastermind');fs.mkdirSync(internal);fs.writeFileSync(path.join(internal,'reorganization.lock'),'maintenance');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'omnimind-test-'));const internal=path.join(root,'.omnimind');fs.mkdirSync(internal);fs.writeFileSync(path.join(internal,'reorganization.lock'),'maintenance');
   try { assert.throws(()=>new Brain(root),/maintenance/i);assert.ok(!fs.existsSync(path.join(internal,'workflow.sqlite'))); }
   finally { cleanup(root); }
 });
 test('maintenance lock makes both the CLI and MCP server exit before opening the database', async t => {
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'mastermind-test-'));const internal=path.join(root,'.mastermind');fs.mkdirSync(internal);fs.writeFileSync(path.join(internal,'reorganization.lock'),'maintenance');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'omnimind-test-'));const internal=path.join(root,'.omnimind');fs.mkdirSync(internal);fs.writeFileSync(path.join(internal,'reorganization.lock'),'maintenance');
   t.after(()=>cleanup(root));
   const run=script=>new Promise((resolve,reject)=>{
-    const child=spawn(process.execPath,script,{env:{...process.env,MASTERMIND_VAULT:root},windowsHide:true});let stderr='';
+    const child=spawn(process.execPath,script,{env:{...process.env,OMNIMIND_VAULT:root},windowsHide:true});let stderr='';
     child.stderr.on('data',data=>{stderr+=data;});child.on('error',reject);child.on('close',code=>resolve({code,stderr}));
   });
   const cli=await run([path.resolve(import.meta.dirname,'../cli.mjs'),'brain_health']);
@@ -162,4 +162,15 @@ test('maintenance lock makes both the CLI and MCP server exit before opening the
   const server=await run([path.resolve(import.meta.dirname,'../server.mjs')]);
   assert.notEqual(server.code,0);assert.match(server.stderr,/maintenance/i);
   assert.ok(!fs.existsSync(path.join(internal,'workflow.sqlite')));
+});
+
+test('older vault data blocks initialization without creating a new database', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimind-test-'));
+  t.after(() => cleanup(root));
+  const previous = path.join(root, '.' + ['master', 'mind'].join(''));
+  fs.mkdirSync(previous);
+  fs.writeFileSync(path.join(previous, 'workflow.sqlite'), 'existing data');
+  assert.throws(() => new Brain(root), /older vault database/);
+  assert.equal(fs.existsSync(path.join(root, '.omnimind')), false);
+  assert.equal(fs.readFileSync(path.join(previous, 'workflow.sqlite'), 'utf8'), 'existing data');
 });

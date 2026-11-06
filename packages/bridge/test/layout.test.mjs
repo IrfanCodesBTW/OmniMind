@@ -8,11 +8,11 @@ import { spawnSync } from 'node:child_process';
 import { Brain } from '../brain.mjs';
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mastermind-layout-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimind-layout-'));
   const brain = new Brain(root);
   t.after(() => { brain.close(); fs.rmSync(root, { recursive: true, force: true }); });
   const put = (p, text) => { fs.mkdirSync(path.dirname(path.join(root, p)), { recursive: true }); fs.writeFileSync(path.join(root, p), text); };
-  const layout = extra => put('.mastermind/layout.json', JSON.stringify({ version: 1, timezone: 'Asia/Calcutta', redirects: {}, projects: {}, categoryHubs: {}, ...extra }));
+  const layout = extra => put('.omnimind/layout.json', JSON.stringify({ version: 1, timezone: 'Asia/Calcutta', redirects: {}, projects: {}, categoryHubs: {}, ...extra }));
   return { root, brain, put, layout };
 }
 test('readable Unicode captures have stable collision qualifiers and fingerprint crash recovery', t => {
@@ -74,10 +74,10 @@ test('redirects are dynamic and canonicalize reads and cached capture results wi
 test('manifest rejects malicious paths, symlink escapes and redirect cycles before writes', t => {
   const { brain, root, put, layout } = fixture(t);
   put('safe.md', 'safe');
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mastermind-layout-outside-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimind-layout-outside-'));
   t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
   fs.symlinkSync(outside, path.join(root, 'escape'));
-  for (const bad of ['../outside.md', '.mastermind/workflow.sqlite', '/absolute.md', 'escape/private.md']) {
+  for (const bad of ['../outside.md', '.omnimind/workflow.sqlite', '/absolute.md', 'escape/private.md']) {
     for (const extra of [{ redirects: { 'old.md': bad } }, { projects: { p: { folder: bad, hub: 'safe.md' } } }, { categoryHubs: { marketing: bad } }]) {
       layout(extra);
       assert.throws(() => brain.capture(capture()), /traversal|Hidden|escapes|layout|Layout/);
