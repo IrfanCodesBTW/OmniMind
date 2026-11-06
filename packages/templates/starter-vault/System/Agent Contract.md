@@ -1,14 +1,14 @@
 ---
 type: "system"
 category: "system"
-title: "Mastermind — Shared Agent Contract"
+title: "OmniMind — Shared Agent Contract"
 ---
 
-# Mastermind — Shared Agent Contract
+# OmniMind — Shared Agent Contract
 
 [[Home|Home]]
 
-This contract governs all autonomous coding and research agents connected to this Mastermind workspace (Claude, Cursor, Codex, OpenCode, Hermes, Gemini, Command Code).
+This contract governs all autonomous coding and research agents connected to this OmniMind workspace (Claude, Cursor, Codex, OpenCode, Hermes, Gemini, Command Code).
 
 ## 1. Start Work
 1. Always call `brain_context` with a short query describing your intent.

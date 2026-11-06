@@ -1,4 +1,4 @@
-# 🧠 Mastermind
+# 🧠 OmniMind
 
 > **Local-first shared memory and transactional task coordinator for multi-agent AI harnesses.**
 
@@ -20,9 +20,9 @@ Modern AI developers don't use just one tool:
 
 ---
 
-## ⚡ The Solution: Mastermind
+## ⚡ The Solution: OmniMind
 
-**Mastermind** provides a single, local-first source of truth that every AI agent connects to via the standard [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
+**OmniMind** provides a single, local-first source of truth that every AI agent connects to via the standard [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
 
 ```
    ┌─────────────────────────────────────────────────────────────┐
@@ -32,7 +32,7 @@ Modern AI developers don't use just one tool:
                                   │ (stdio MCP Protocol)
                                   ▼
    ┌─────────────────────────────────────────────────────────────┐
-   │                     Mastermind Bridge                       │
+   │                      OmniMind Bridge                        │
    │            (7 MCP Tools · Optimistic Locking)               │
    └──────────────┬───────────────────────────────┬──────────────┘
                   │                               │
@@ -54,8 +54,8 @@ Modern AI developers don't use just one tool:
 
 ### Option A: Using the Interactive Installer
 ```bash
-git clone https://github.com/IrfanCodesBTW/mastermind.git
-cd mastermind
+git clone https://github.com/IrfanCodesBTW/omnimind.git
+cd omnimind
 npm run init
 ```
 The wizard will:
@@ -69,9 +69,9 @@ Add the bridge to your MCP client config (e.g. `claude_desktop_config.json` or C
 ```json
 {
   "mcpServers": {
-    "mastermind": {
+    "omnimind": {
       "command": "node",
-      "args": ["/path/to/mastermind/packages/bridge/server.mjs"],
+      "args": ["/path/to/omnimind/packages/bridge/server.mjs"],
       "env": {
         "MASTERMIND_VAULT": "/path/to/your/Obsidian/Vault"
       }
@@ -84,7 +84,7 @@ Add the bridge to your MCP client config (e.g. `claude_desktop_config.json` or C
 
 ## 🛠️ The 7 Core MCP Tools
 
-Mastermind exposes a curated set of 7 high-leverage tools:
+OmniMind exposes a curated set of 7 high-leverage tools:
 
 | Tool | Purpose | Key Guarantees |
 |---|---|---|
@@ -100,10 +100,10 @@ Mastermind exposes a curated set of 7 high-leverage tools:
 
 ## 📂 Vault Information Architecture
 
-Mastermind enforces a strict, human-friendly folder taxonomy:
+OmniMind enforces a strict, human-friendly folder taxonomy:
 
 ```text
-Mastermind/
+OmniMind/
 ├── Home.md                       # Top-level entrypoint
 ├── AGENTS.md                     # Universal agent contract
 ├── Me/                           # Confirmed profile facts and user preferences
@@ -134,7 +134,7 @@ Mastermind/
 
 ## 🧪 Testing
 
-Mastermind includes an exhaustive test suite exercising concurrent process claims, junction/symlink security escapes, crash recovery, and tool discovery:
+OmniMind includes an exhaustive test suite exercising concurrent process claims, junction/symlink security escapes, crash recovery, and tool discovery:
 
 ```bash
 cd packages/bridge

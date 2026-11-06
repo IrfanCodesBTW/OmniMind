@@ -8,7 +8,7 @@ if (!vault) throw new Error('MASTERMIND_VAULT must identify the existing Obsidia
 let brain;
 try { brain = new Brain(vault); }
 catch (error) { console.error(error.message); process.exit(75); }
-const server = new Server({ name: 'mastermind', version: '0.1.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'omnimind', version: '1.0.0' }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolDefinitions.map(t => ({ ...t,
   annotations: { readOnlyHint: !['brain_capture', 'brain_task'].includes(t.name), destructiveHint: t.name === 'brain_task', openWorldHint: false }
 })) }));

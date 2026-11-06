@@ -6,7 +6,7 @@ title: "Home"
 
 # Home
 
-Welcome to your Mastermind shared AI knowledge and task workspace.
+Welcome to your OmniMind shared AI knowledge and task workspace.
 
 ## Primary Hubs
 - [[Areas/Areas|Areas]]: Long-term domains and ongoing areas of responsibility

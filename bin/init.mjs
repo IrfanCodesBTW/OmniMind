@@ -22,12 +22,12 @@ function ask(question, defaultVal) {
 
 async function main() {
   console.log('\n🧠 ==========================================');
-  console.log('       MASTERMIND ONBOARDING WIZARD');
+  console.log('         OMNIMIND ONBOARDING WIZARD');
   console.log('   Local-First Multi-Agent Memory & Tasks');
   console.log('==========================================\n');
 
-  const defaultVault = path.join(os.homedir(), 'Documents', 'Mastermind');
-  const targetVault = path.resolve(await ask('Where should your Mastermind vault be created?', defaultVault));
+  const defaultVault = path.join(os.homedir(), 'Documents', 'OmniMind');
+  const targetVault = path.resolve(await ask('Where should your OmniMind vault be created?', defaultVault));
 
   if (!fs.existsSync(targetVault)) {
     fs.mkdirSync(targetVault, { recursive: true });
@@ -71,7 +71,7 @@ async function main() {
         cfg = JSON.parse(fs.readFileSync(claudeConfigPath, 'utf8'));
       }
       cfg.mcpServers = cfg.mcpServers || {};
-      cfg.mcpServers.mastermind = {
+      cfg.mcpServers.omnimind = {
         command: nodeExecutable,
         args: [BRIDGE_SERVER],
         env: { MASTERMIND_VAULT: targetVault }
@@ -97,14 +97,14 @@ async function main() {
   }
 
   console.log('\n🎉 ==========================================');
-  console.log('           MASTERMIND SETUP COMPLETE!        ');
+  console.log('           OMNIMIND SETUP COMPLETE!        ');
   console.log('==========================================\n');
   console.log(`Vault Location:   ${targetVault}`);
   console.log(`Bridge Server:    ${BRIDGE_SERVER}`);
   console.log(`Connected Clients: ${configuredClients.join(', ') || 'Manual setup'}\n`);
   console.log('Next steps:');
   console.log('1. Open your vault in Obsidian: select "Open folder as vault" -> ' + targetVault);
-  console.log('2. Start your AI agent and ask: "Check my Mastermind context and tell me what tasks are open."\n');
+  console.log('2. Start your AI agent and ask: "Check my OmniMind context and tell me what tasks are open."\n');
 }
 
 main().catch(err => {

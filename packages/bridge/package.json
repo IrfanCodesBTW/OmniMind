@@ -1,12 +1,12 @@
 {
-  "name": "mastermind-bridge",
+  "name": "omnimind-bridge",
   "version": "1.0.0",
   "description": "Local-first shared memory and task workflow engine for multi-agent AI harnesses via stdio MCP",
   "type": "module",
   "main": "server.mjs",
   "bin": {
-    "mastermind-bridge": "./server.mjs",
-    "mastermind-cli": "./cli.mjs"
+    "omnimind-bridge": "./server.mjs",
+    "omnimind-cli": "./cli.mjs"
   },
   "engines": {
     "node": ">=24"
