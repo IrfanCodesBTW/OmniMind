@@ -9,6 +9,12 @@ AI clients  ── stdio MCP ──>  OmniMind bridge  ──>  Markdown notes
                                              └──>  SQLite tasks and revisions
 ```
 
+## Example vault graph
+
+This Obsidian graph shows how notes, projects, and topic hubs can connect in a shared Markdown vault. It is an example from a related working vault; the names and content of your OmniMind graph will depend on your own notes.
+
+![Obsidian graph showing connected notes, project hubs, and topics](docs/images/vault-graph.png)
+
 ## Features
 
 - Share context, search notes, and record attributed captures across MCP clients.
