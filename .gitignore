@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+.mastermind/*.sqlite-wal
+.mastermind/*.sqlite-shm
+.backup-*
+coverage/
+dist/

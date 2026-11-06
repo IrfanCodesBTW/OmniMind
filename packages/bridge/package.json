@@ -1,0 +1,23 @@
+{
+  "name": "mastermind-bridge",
+  "version": "1.0.0",
+  "description": "Local-first shared memory and task workflow engine for multi-agent AI harnesses via stdio MCP",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "mastermind-bridge": "./server.mjs",
+    "mastermind-cli": "./cli.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "cli": "node cli.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  },
+  "license": "MIT"
+}

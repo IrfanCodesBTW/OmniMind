@@ -1,0 +1,32 @@
+{
+  "name": "mastermind",
+  "version": "1.0.0",
+  "description": "Local-first shared memory and transactional task engine for multi-agent AI harnesses",
+  "main": "packages/bridge/server.mjs",
+  "bin": {
+    "mastermind": "bin/init.mjs",
+    "create-mastermind": "bin/init.mjs"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "init": "node bin/init.mjs",
+    "start": "node packages/bridge/server.mjs",
+    "test": "node --test packages/bridge/test/*.test.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "multi-agent",
+    "ai-agents",
+    "obsidian",
+    "local-first",
+    "sqlite",
+    "memory",
+    "task-coordination"
+  ],
+  "author": "IrfanCodesBTW",
+  "license": "MIT"
+}
