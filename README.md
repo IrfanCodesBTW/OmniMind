@@ -13,7 +13,7 @@ AI clients  ── stdio MCP ──>  OmniMind bridge  ──>  Markdown notes
 
 This Obsidian graph shows an OmniMind demo vault, where notes, projects, and topic hubs connect. Your graph will reflect your own notes and links.
 
-![Obsidian graph showing connected notes, project hubs, and topics](docs/images/vault-graph.png)
+![Obsidian graph showing connected notes, project hubs, and topics](docs/images/demo-vault-graph.png)
 
 ## Features
 
