@@ -50,6 +50,7 @@ export class Brain {
   constructor(vault, options = {}) {
     this.root = fs.realpathSync(vault);
     this.readOnly = Boolean(options.readOnly);
+    this.clock = options.clock ?? Date.now;
     this.internal = path.join(this.root, '.omnimind');
     const previous = path.join(this.root, '.' + ['master', 'mind'].join(''));
     if (fs.existsSync(previous)) throw new Error('An older vault database was detected. Stop all clients and migrate it before opening this vault.');
@@ -264,10 +265,18 @@ export class Brain {
   task(input) {
     if (input.action === 'get') return this.taskGet(input.task_id);
     const action = requireText(input.action, 'action', 30);
-    if (!['create', 'claim', 'checkpoint', 'handoff', 'complete', 'reopen'].includes(action)) throw new Error('Unknown task action');
+    if (!['create', 'claim', 'checkpoint', 'handoff', 'complete', 'reopen', 'heartbeat', 'recover'].includes(action)) throw new Error('Unknown task action');
     const agent = requireText(input.agent, 'agent', 100);
     const session = requireText(input.session_id, 'session_id', 200);
     const req = requireText(input.request_id, 'request_id', 200);
+    if (input.lease_seconds !== undefined && (!Number.isInteger(input.lease_seconds) || input.lease_seconds < 60 || input.lease_seconds > 86400)) {
+      throw new Error('lease_seconds must be an integer between 60 and 86400');
+    }
+    const renewLease = task => {
+      const seconds = input.lease_seconds ?? task.lease?.duration_seconds ?? 900;
+      task.lease = { duration_seconds: seconds, heartbeat_at: new Date(this.clock()).toISOString(),
+        expires_at: new Date(this.clock() + seconds * 1000).toISOString() };
+    };
     const fingerprint = hash(stable(input));
     this.db.exec('BEGIN IMMEDIATE');
     try {
@@ -293,6 +302,27 @@ export class Brain {
         const blocked = task.dependencies.filter(id => this.taskGet(id).status !== 'done');
         if (blocked.length) throw new Error(`Unfinished dependencies: ${blocked.join(', ')}`);
         task.owner = { agent, session_id: session }; task.status = 'in_progress';
+        renewLease(task);
+      } else if (action === 'heartbeat') {
+        if (!task.owner || task.owner.agent !== agent || task.owner.session_id !== session) throw new Error('Only the current owner can heartbeat');
+        renewLease(task);
+      } else if (action === 'recover') {
+        if (!task.owner || !['in_progress', 'blocked', 'review'].includes(task.status)) throw new Error('Recovery requires a claimed unfinished task');
+        if (input.confirm_recovery !== true) throw new Error('Recovery requires explicit confirm_recovery=true');
+        const reason = requireText(input.reason, 'reason', 2000);
+        if (task.owner.agent === agent && task.owner.session_id === session) throw new Error('Current owner should resume or heartbeat, not recover');
+        if (task.lease) {
+          const expiry = Date.parse(task.lease.expires_at);
+          if (!Number.isFinite(expiry) || this.clock() < expiry) throw new Error('Task lease has not expired or is invalid');
+        } else if (input.confirm_unleased !== true) {
+          throw new Error('Legacy task has no lease; confirm_unleased=true requires explicit operator authorization');
+        }
+        task.recoveries ??= [];
+        task.recoveries.push({ at: new Date(this.clock()).toISOString(), from: { ...task.owner },
+          to: { agent, session_id: session }, reason, previous_revision: task.revision,
+          previous_lease: task.lease ?? null });
+        task.owner = { agent, session_id: session }; task.status = 'in_progress';
+        renewLease(task);
       } else if (['checkpoint', 'handoff', 'complete'].includes(action)) {
         if (task.owner?.session_id !== session || task.owner?.agent !== agent) throw new Error('Claim the task in this agent/session before updating it');
         task.summary = requireText(input.summary, 'summary', 12000);
@@ -300,6 +330,7 @@ export class Brain {
         task.artifacts = input.artifacts === undefined ? task.artifacts : strings(input.artifacts, 'artifacts');
         task.validation = input.validation === undefined ? '' : requireText(input.validation, 'validation', 12000);
         if (action === 'checkpoint') {
+          renewLease(task);
           if (input.status && !['in_progress', 'blocked', 'review'].includes(input.status)) throw new Error('Invalid checkpoint status');
           task.status = input.status ?? 'in_progress';
         }
@@ -308,12 +339,12 @@ export class Brain {
           if (!task.artifacts.length) throw new Error('Completion requires at least one deliverable/artifact reference');
           const blocked = task.dependencies.filter(id => this.taskGet(id).status !== 'done');
           if (blocked.length) throw new Error('Dependencies must be done before completion');
-          task.status = 'done'; task.owner = null;
+          task.status = 'done'; task.owner = null; task.lease = null;
         }
         if (action === 'handoff') {
           task.handoffs.push({ offered_at: now(), from: { agent, session_id: session }, to_agent: input.to_agent ?? null,
             summary: task.summary, next_steps: task.next_steps, artifacts: task.artifacts, validation: task.validation });
-          task.status = 'ready'; task.owner = null;
+          task.status = 'ready'; task.owner = null; task.lease = null;
         }
       } else if (action === 'reopen') {
         if (task.status !== 'done') throw new Error('Only completed tasks can be reopened');
@@ -371,7 +402,7 @@ export class Brain {
         const heading = task.title.replace(/[\r\n]+/g, ' ').trim();
         const taskLink = `[[${relative.slice(0, -3)}|${path.posix.basename(relative, '.md')}]]`;
         const hub = this.hubLink(layout, task.project_id, 'project');
-        const content = `---\ntype: task-view\ntask_id: ${JSON.stringify(task.id)}\nstatus: ${task.status}\nproject_id: ${JSON.stringify(task.project_id)}\nrevision: ${task.revision}\ntitle: ${JSON.stringify(task.title)}\n---\n<!-- OmniMind generated view. Use brain_task to change workflow state. -->\n\n# ${heading}\n\n${hub ? `${hub} · ` : ''}${taskLink}\n\nStatus: **${task.status}** · Revision: ${task.revision}\n\nOwner: ${task.owner ? `${task.owner.agent} / ${task.owner.session_id}` : 'Available for a new claim'}\n\n## Objective\n${task.objective}\n\n## Acceptance criteria\n${list(task.acceptance)}\n\n## Latest checkpoint\n${task.summary || 'No work recorded yet.'}\n\n## Next steps\n${list(task.next_steps)}\n\n## Artifacts and repository state\n${list(task.artifacts)}\n\n## Validation\n${task.validation || 'Not run / not recorded.'}\n\n## Handoffs\n${task.handoffs.map(h => `- ${h.offered_at}: ${h.from.agent} → ${h.to_agent || 'next available agent'}: ${h.summary}`).join('\n') || '- None'}\n\nUpdated: ${task.updated_at}\n\nCanonical workflow state: local SQLite database, retrieved with brain_task(action=get).\n`;
+        const content = `---\ntype: task-view\ntask_id: ${JSON.stringify(task.id)}\nstatus: ${task.status}\nproject_id: ${JSON.stringify(task.project_id)}\nrevision: ${task.revision}\ntitle: ${JSON.stringify(task.title)}\n---\n<!-- OmniMind generated view. Use brain_task to change workflow state. -->\n\n# ${heading}\n\n${hub ? `${hub} · ` : ''}${taskLink}\n\nStatus: **${task.status}** · Revision: ${task.revision}\n\nOwner: ${task.owner ? `${task.owner.agent} / ${task.owner.session_id}` : 'Available for a new claim'}\n\nLease expiry: ${task.lease?.expires_at ?? 'No active lease'}\nRecovery count: ${task.recoveries?.length ?? 0}\n\n## Objective\n${task.objective}\n\n## Acceptance criteria\n${list(task.acceptance)}\n\n## Latest checkpoint\n${task.summary || 'No work recorded yet.'}\n\n## Next steps\n${list(task.next_steps)}\n\n## Artifacts and repository state\n${list(task.artifacts)}\n\n## Validation\n${task.validation || 'Not run / not recorded.'}\n\n## Handoffs\n${task.handoffs.map(h => `- ${h.offered_at}: ${h.from.agent} → ${h.to_agent || 'next available agent'}: ${h.summary}`).join('\n') || '- None'}\n\nUpdated: ${task.updated_at}\n\nCanonical workflow state: local SQLite database, retrieved with brain_task(action=get).\n`;
         const warning = this.projection(legacy, content, relative); if (warning) warnings.push(warning);
       }
       this.atomic(layoutFile, `${JSON.stringify(layout, null, 2)}\n`);
@@ -398,7 +429,7 @@ export class Brain {
       profile_observations_total: observations.length, profile_observations_truncated: observations.length > 5,
       task: task_id ? this.taskGet(task_id) : null,
       workflow: { total: active.length, truncated: active.length > 12, tasks: active.slice(0, 12).map(t => ({
-        id: t.id, title: t.title, project_id: t.project_id, revision: t.revision, status: t.status, owner: t.owner,
+        id: t.id, title: t.title, project_id: t.project_id, revision: t.revision, status: t.status, owner: t.owner, lease: t.lease ?? null,
         summary: t.summary.slice(0, 600), next_steps: t.next_steps.slice(0, 5), detail_required: true
       })) },
       relevant_notes: query ? this.search({ query, limit: 8 }) : null,
@@ -418,7 +449,7 @@ export const toolDefinitions = [
   { name: 'brain_read', description: 'Read a vault-relative Markdown note, returning its hash and explicit pagination.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, offset: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 40000 } }, required: ['path'], additionalProperties: false } },
   { name: 'brain_capture', description: 'SAVE discoveries, user corrections, professional context, drafts, lessons or session outcomes as a new attributed Markdown note. Never publishes anything externally.', inputSchema: { type: 'object', properties: { category: { type: 'string', enum: Object.keys(categories) }, title: { type: 'string' }, content: { type: 'string' }, agent: { type: 'string' }, session_id: { type: 'string' }, request_id: { type: 'string' }, project_id: { type: 'string' }, task_id: { type: 'string' }, sources: { type: 'array', items: { type: 'string' } } }, required: ['category', 'title', 'content', 'agent', 'session_id', 'request_id'], additionalProperties: false } },
   { name: 'brain_tasks', description: 'List authoritative tasks; filter by project or status. Useful before creating duplicate work.', inputSchema: { type: 'object', properties: { project_id: { type: 'string' }, status: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } }, additionalProperties: false } },
-  { name: 'brain_task', description: 'Create, get, claim, checkpoint, handoff, complete or reopen a task. Mutations require unique request_id, agent and session_id; existing-task mutations require expected_revision. Claim before work. Handoff releases ownership and saves next steps. Completion needs artifacts and validation. No other app is launched or messaged.', inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['create', 'get', 'claim', 'checkpoint', 'handoff', 'complete', 'reopen'] }, task_id: { type: 'string' }, expected_revision: { type: 'integer', minimum: 1 }, agent: { type: 'string' }, session_id: { type: 'string' }, request_id: { type: 'string' }, title: { type: 'string' }, project_id: { type: 'string' }, objective: { type: 'string' }, acceptance: { type: 'array', items: { type: 'string' } }, dependencies: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' }, next_steps: { type: 'array', items: { type: 'string' } }, artifacts: { type: 'array', items: { type: 'string' } }, validation: { type: 'string' }, status: { type: 'string', enum: ['in_progress', 'blocked', 'review'] }, to_agent: { type: 'string' } }, required: ['action'], additionalProperties: false } },
+  { name: 'brain_task', description: 'Create, get, claim, checkpoint, handoff, complete, reopen, heartbeat or explicitly recover an expired claim. Heartbeats renew a 900-second default lease. Recovery requires confirm_recovery and reason; never infer operator approval from expiry. Legacy claims additionally require confirm_unleased. Leases do not fence direct file edits. Mutations require unique request_id, agent and session_id; existing-task mutations require expected_revision. Claim before work. Handoff releases ownership and saves next steps. Completion needs artifacts and validation. No other app is launched or messaged.', inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['create', 'get', 'claim', 'checkpoint', 'handoff', 'complete', 'reopen', 'heartbeat', 'recover'] }, lease_seconds: { type: 'integer', minimum: 60, maximum: 86400 }, confirm_recovery: { type: 'boolean' }, confirm_unleased: { type: 'boolean' }, reason: { type: 'string' }, task_id: { type: 'string' }, expected_revision: { type: 'integer', minimum: 1 }, agent: { type: 'string' }, session_id: { type: 'string' }, request_id: { type: 'string' }, title: { type: 'string' }, project_id: { type: 'string' }, objective: { type: 'string' }, acceptance: { type: 'array', items: { type: 'string' } }, dependencies: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' }, next_steps: { type: 'array', items: { type: 'string' } }, artifacts: { type: 'array', items: { type: 'string' } }, validation: { type: 'string' }, status: { type: 'string', enum: ['in_progress', 'blocked', 'review'] }, to_agent: { type: 'string' } }, required: ['action'], additionalProperties: false } },
   { name: 'brain_health', description: 'Check local vault availability, workflow integrity and integration limitations.', inputSchema: { type: 'object', properties: {}, additionalProperties: false } }
 ];
 

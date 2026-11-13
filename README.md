@@ -132,3 +132,7 @@ You are setting up the OmniMind MCP Brain on my local machine. Follow these step
 7. Save a harmless attributed setup note with brain_capture, then read the exact returned path with brain_read. Do not include credentials.
 8. Report the checkout, commit, Node version, test results, vault, configuration and backup paths, tool-discovery and connection results, and any required restart or blocker. Include rollback steps. Do not claim a host connection was verified unless host-side calls succeeded.
 ```
+
+## Interrupted work
+
+Owner heartbeats and checkpoints renew task leases. Expired claims can be explicitly recovered without discarding saved progress; legacy claims require extra confirmation. See [Task recovery](packages/bridge/TASK-RECOVERY.md) for API, timing and safety boundaries. Restart existing MCP sessions to load this feature.
